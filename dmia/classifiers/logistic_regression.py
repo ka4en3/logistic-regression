@@ -1,3 +1,5 @@
+# dmia/classifiers/logistic_regression.py
+
 import numpy as np
 from scipy import sparse
 
@@ -47,6 +49,10 @@ class LogisticRegression:
             # replacement is faster than sampling without replacement.              #
             #########################################################################
 
+            # Sample random indices for mini-batch
+            indices = np.random.choice(num_train, batch_size, replace=True)
+            X_batch = X[indices]
+            y_batch = y[indices]
 
             #########################################################################
             #                       END OF YOUR CODE                                #
@@ -61,6 +67,8 @@ class LogisticRegression:
             # Update the weights using the gradient and the learning rate.          #
             #########################################################################
 
+            # Update weights using gradient descent
+            self.w -= learning_rate * gradW
 
             #########################################################################
             #                       END OF YOUR CODE                                #
@@ -92,7 +100,18 @@ class LogisticRegression:
         # Hint: It might be helpful to use np.vstack and np.sum                   #
         ###########################################################################
 
+        # Compute scores using linear transformation
+        scores = X.dot(self.w)
 
+        # Apply sigmoid function to get probability of class 1
+        # sigmoid(z) = 1 / (1 + exp(-z))
+        prob_class_1 = 1.0 / (1.0 + np.exp(-scores))
+
+        # Probability of class 0 is 1 - probability of class 1
+        prob_class_0 = 1.0 - prob_class_1
+
+        # Stack probabilities into 2D array
+        y_proba = np.vstack((prob_class_0, prob_class_1)).T
 
         ###########################################################################
         #                           END OF YOUR CODE                              #
@@ -117,7 +136,8 @@ class LogisticRegression:
         # Implement this method. Store the predicted labels in y_pred.            #
         ###########################################################################
         y_proba = self.predict_proba(X, append_bias=True)
-        y_pred = ...
+        # Choose class with highest probability
+        y_pred = np.argmax(y_proba, axis=1)
 
         ###########################################################################
         #                           END OF YOUR CODE                              #
@@ -138,15 +158,41 @@ class LogisticRegression:
         loss = 0
         # Compute loss and gradient. Your code should not contain python loops.
 
+        # Get number of samples
+        N = X_batch.shape[0]
+
+        # Compute scores (linear transformation)
+        scores = X_batch.dot(self.w)
+
+        # Apply sigmoid function to get predictions
+        predictions = 1.0 / (1.0 + np.exp(-scores))
+
+        # Compute binary cross-entropy loss
+        # L = -1/N * sum(y * log(h) + (1-y) * log(1-h))
+        # Add small epsilon to prevent log(0)
+        epsilon = 1e-7
+        loss = -np.mean(y_batch * np.log(predictions + epsilon) +
+                        (1 - y_batch) * np.log(1 - predictions + epsilon))
+
+        # Compute gradient
+        # dL/dw = 1/N * X^T * (predictions - y)
+        error = predictions - y_batch
+        dw = X_batch.T.dot(error) / N
 
         # Right now the loss is a sum over all training examples, but we want it
         # to be an average instead so we divide by num_train.
         # Note that the same thing must be done with gradient.
 
+        # (Already done above by using np.mean for loss and dividing by N for gradient)
 
         # Add regularization to the loss and gradient.
         # Note that you have to exclude bias term in regularization.
 
+        # Add L2 regularization to loss (exclude bias term which is the last element)
+        loss += 0.5 * reg * np.sum(self.w[:-1] ** 2)
+
+        # Add regularization to gradient (exclude bias term)
+        dw[:-1] += reg * self.w[:-1]
 
         return loss, dw
 
